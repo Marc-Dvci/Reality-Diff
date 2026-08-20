@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="790" viewBox="0 0 1320 790" role="img" aria-labelledby="title desc">
+  <title id="title">Reality Diff architecture</title>
+  <desc id="desc">Web and Android clients connect to a Cloud Run API and ADK partner, which use a staged ingestion pipeline, Gemini, Firestore, Cloud Storage, Pub/Sub, and evidence-linked temporal reasoning.</desc>
+  <defs>
+    <style>
+      text{font-family:Google Sans,Inter,Segoe UI,Arial,sans-serif;fill:#1f1f1f} .h{font-size:28px;font-weight:700}.k{font-size:12px;font-weight:700;letter-spacing:1.5px;fill:#0b57d0}.t{font-size:16px;font-weight:700}.s{font-size:12px;fill:#5f6368}.box{fill:#fff;stroke:#d9e2ef;stroke-width:1.5}.violet{fill:#d3e3fd;stroke:#8ab4f8}.mint{fill:#e6f4ea;stroke:#81c995}.amber{fill:#fef7e0;stroke:#fdd663}.dark{fill:#0b57d0;stroke:#0b57d0}.darktext{fill:#fff}.line{fill:none;stroke:#7b8794;stroke-width:2;marker-end:url(#arrow)}.dash{fill:none;stroke:#7b8794;stroke-width:2;stroke-dasharray:7 6;marker-end:url(#arrow)}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#8f897f"/></marker>
+  </defs>
+  <rect width="1320" height="790" rx="28" fill="#f8fafd"/>
+  <text x="58" y="62" class="h">Reality Diff · evidence-first world memory</text>
+  <text x="59" y="89" class="s">Google multimodel retrieval · two native clients · explicit sample/live boundary</text>
+
+  <text x="58" y="140" class="k">CLIENTS</text>
+  <rect x="58" y="160" width="210" height="110" rx="17" class="box"/>
+  <text x="80" y="194" class="t">Responsive web</text><text x="80" y="219" class="s">Photos gallery · real upload</text><text x="80" y="240" class="s">Evidence UI · sample fallback</text>
+  <rect x="58" y="292" width="210" height="145" rx="17" class="box"/>
+  <text x="80" y="326" class="t">Native Android</text><text x="80" y="351" class="s">MediaStore discovery</text><text x="80" y="372" class="s">System Photo Picker</text><text x="80" y="393" class="s">Incremental JobScheduler</text><text x="80" y="414" class="s">Bundled shared fixture</text>
+
+  <text x="352" y="140" class="k">COLLABORATIVE PARTNER</text>
+  <rect x="352" y="160" width="290" height="302" rx="20" class="violet"/>
+  <text x="378" y="198" class="t">Cloud Run · FastAPI + Google ADK</text>
+  <rect x="378" y="214" width="238" height="47" rx="12" fill="#fff"/><text x="394" y="235" class="t" font-size="13">search_world</text><text x="394" y="252" class="s">Verified temporal evidence</text>
+  <rect x="378" y="270" width="238" height="47" rx="12" fill="#fff"/><text x="394" y="291" class="t" font-size="13">search_imported_photos</text><text x="394" y="308" class="s">Embedding 2 retrieval</text>
+  <rect x="378" y="326" width="238" height="47" rx="12" fill="#fff"/><text x="394" y="347" class="t" font-size="13">inspect_subject</text><text x="394" y="364" class="s">States · events · coverage</text>
+  <rect x="378" y="382" width="238" height="47" rx="12" fill="#fff"/><text x="394" y="403" class="t" font-size="13">remember_correction</text><text x="394" y="420" class="s">Explicit feedback only</text>
+
+  <text x="722" y="140" class="k">WORLD MEMORY</text>
+  <rect x="722" y="160" width="245" height="120" rx="17" class="mint"/>
+  <text x="746" y="194" class="t">Temporal reasoner</text><text x="746" y="219" class="s">Identity continuity · intervals</text><text x="746" y="240" class="s">Coverage gaps · contradictions</text><text x="746" y="261" class="s">Confidence · provenance</text>
+  <rect x="1000" y="160" width="250" height="120" rx="17" class="box"/>
+  <text x="1024" y="194" class="t">Firestore + Storage</text><text x="1024" y="219" class="s">Private originals · observations</text><text x="1024" y="240" class="s">Corrections · ingestion runs</text><text x="1024" y="261" class="s">Private embedding vectors</text>
+
+  <text x="352" y="500" class="k">INGEST · INDEX · RETRIEVE</text>
+  <rect x="352" y="522" width="898" height="190" rx="20" class="box"/>
+  <rect x="378" y="558" width="124" height="104" rx="14" class="mint"/><text x="394" y="590" class="t">1 · Discover</text><text x="394" y="614" class="s">New media</text><text x="394" y="634" class="s">Metadata</text>
+  <rect x="522" y="558" width="124" height="104" rx="14" class="mint"/><text x="538" y="590" class="t">2 · Filter</text><text x="538" y="614" class="s">SHA-256 dedupe</text><text x="538" y="634" class="s">File safety</text>
+  <rect x="666" y="558" width="124" height="104" rx="14" class="amber"/><text x="682" y="590" class="t">3 · Triage</text><text x="682" y="614" class="s">3.5 Flash-Lite</text><text x="682" y="634" class="s">Usefulness JSON</text>
+  <rect x="810" y="558" width="124" height="104" rx="14" class="violet"/><text x="826" y="590" class="t">4 · Observe</text><text x="826" y="614" class="s">3.7 Flash</text><text x="826" y="634" class="s">Visible facts</text>
+  <rect x="954" y="558" width="124" height="104" rx="14" class="violet"/><text x="970" y="590" class="t">5 · Embed</text><text x="970" y="614" class="s">Embedding 2</text><text x="970" y="634" class="s">768 dimensions</text>
+  <rect x="1098" y="558" width="124" height="104" rx="14" class="dark"/><text x="1114" y="590" class="t darktext">6 · Commit</text><text x="1114" y="614" class="s darktext">Firestore</text><text x="1114" y="634" class="s darktext">Pub/Sub event</text>
+
+  <path d="M268 215 H352" class="line"/><path d="M268 365 H320 V300 H352" class="line"/>
+  <path d="M642 220 H722" class="line"/><path d="M967 220 H1000" class="line"/>
+  <path d="M497 462 V522" class="dash"/><path d="M1100 522 V280" class="line"/>
+  <path d="M502 610 H522M646 610H666M790 610H810M934 610H954M1078 610H1098" class="line"/>
+  <text x="58" y="752" class="s">Solid arrows: data flow · Dashed arrow: media indexing · Sample evidence uses the same response contracts without claiming live model execution</text>
+</svg>

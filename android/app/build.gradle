@@ -1,0 +1,52 @@
+plugins {
+    id "com.android.application"
+}
+
+def realityDiffApiBaseUrl = providers.environmentVariable("REALITYDIFF_API_BASE_URL").getOrElse("")
+def escapedApiBaseUrl = realityDiffApiBaseUrl.replace("\\", "\\\\").replace('"', '\\"')
+
+android {
+    namespace = "app.realitydiff"
+    compileSdk = 37
+
+    defaultConfig {
+        applicationId = "app.realitydiff"
+        minSdk = 29
+        targetSdk = 37
+        versionCode = 1
+        versionName = "0.1.0"
+
+        buildConfigField "String", "API_BASE_URL", "\"${escapedApiBaseUrl}\""
+        testInstrumentationRunner = "android.app.InstrumentationTestRunner"
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    sourceSets {
+        // The Android demo consumes the exact web fixture and photo directory.
+        // One canonical dataset prevents two clients from silently drifting.
+        main.assets.srcDir file("../../web")
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled = false
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    packaging {
+        resources.excludes += ["META-INF/DEPENDENCIES", "META-INF/LICENSE*", "META-INF/NOTICE*"]
+    }
+}
+
+dependencies {
+    implementation "androidx.activity:activity:1.13.0"
+}

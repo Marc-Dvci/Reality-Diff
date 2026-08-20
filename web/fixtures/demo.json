@@ -1,0 +1,608 @@
+{
+  "meta": {
+    "product": "Reality Diff",
+    "tagline": "A semantic memory for the physical world.",
+    "account_name": "Maya's world",
+    "generated_at": "2026-08-20T18:30:00Z",
+    "demo_mode": true,
+    "synthetic_media": true,
+    "model": "Gemini 3.7 Flash",
+    "triage_model": "Gemini 3.5 Flash-Lite",
+    "embedding_model": "Gemini Embedding 2",
+    "gallery_media": "Licensed Pexels photos plus synthetic evidence sequences"
+  },
+  "summary": {
+    "photos_indexed": 412,
+    "photos_seen": 463,
+    "duplicates_skipped": 51,
+    "subjects": 4,
+    "changes": 17,
+    "coverage_gaps": 3,
+    "last_sync": "12 minutes ago",
+    "history_months": 14
+  },
+  "gallery": [
+    {
+      "id": "gallery-air-travel",
+      "image": "/assets/gallery/air-travel.jpg",
+      "captured_at": "2026-08-16T07:42:00+02:00",
+      "title": "Early train to the airport",
+      "category": "Trips",
+      "location": "Paris, France",
+      "source": "android_mediastore",
+      "origin": "Pexels · photo 1008155"
+    },
+    {
+      "id": "gallery-art-studio",
+      "image": "/assets/gallery/art-studio.jpg",
+      "captured_at": "2026-08-13T18:10:00+02:00",
+      "title": "Afternoon in the studio",
+      "category": "Projects",
+      "location": "Montreuil, France",
+      "source": "android_mediastore",
+      "origin": "Pexels · photo 8123131"
+    },
+    {
+      "id": "gallery-beach-sunset",
+      "image": "/assets/gallery/beach-sunset.jpg",
+      "captured_at": "2026-08-08T20:36:00+02:00",
+      "title": "Last evening by the water",
+      "category": "Trips",
+      "location": "Barcelona, Spain",
+      "source": "android_mediastore",
+      "origin": "Pexels · photo 30154478"
+    },
+    {
+      "id": "gallery-camera",
+      "image": "/assets/gallery/camera-gear.jpg",
+      "captured_at": "2026-08-05T09:24:00+02:00",
+      "title": "Camera kit check",
+      "category": "Things",
+      "location": "Barcelona, Spain",
+      "source": "android_picker",
+      "origin": "Pexels · photo 90946"
+    },
+    {
+      "id": "gallery-coastal-hike",
+      "image": "/assets/gallery/coastal-hike.jpg",
+      "captured_at": "2026-08-04T17:52:00+02:00",
+      "title": "Coastal trail",
+      "category": "Outdoors",
+      "location": "Catalonia, Spain",
+      "source": "android_mediastore",
+      "origin": "Pexels · photo 27576233"
+    },
+    {
+      "id": "gallery-coffee",
+      "image": "/assets/gallery/coffee-table.jpg",
+      "captured_at": "2026-07-29T10:14:00+02:00",
+      "title": "Morning flat white",
+      "category": "Food",
+      "location": "Paris, France",
+      "source": "android_mediastore",
+      "origin": "Pexels · photo 302899"
+    },
+    {
+      "id": "gallery-living-room-detail",
+      "image": "/assets/gallery/cozy-corner.jpg",
+      "captured_at": "2026-07-25T15:31:00+02:00",
+      "title": "Living room corner",
+      "category": "Places",
+      "location": "Paris, France",
+      "source": "web_folder",
+      "origin": "Pexels · photo 6422933"
+    },
+    {
+      "id": "gallery-digital-art",
+      "image": "/assets/gallery/digital-portrait.jpg",
+      "captured_at": "2026-07-19T22:08:00+02:00",
+      "title": "Digital installation",
+      "category": "Events",
+      "location": "Paris, France",
+      "source": "android_mediastore",
+      "origin": "Pexels · photo 3861969"
+    },
+    {
+      "id": "gallery-dogs",
+      "image": "/assets/gallery/dogs-at-home.jpg",
+      "captured_at": "2026-07-12T16:43:00+02:00",
+      "title": "Puppies in the park",
+      "category": "Pets",
+      "location": "Vincennes, France",
+      "source": "android_mediastore",
+      "origin": "Pexels · photo 1108099"
+    },
+    {
+      "id": "gallery-family-dinner",
+      "image": "/assets/gallery/family-dinner.jpg",
+      "captured_at": "2026-07-05T20:11:00+02:00",
+      "title": "Sunday dinner",
+      "category": "Food",
+      "location": "Paris, France",
+      "source": "android_mediastore",
+      "origin": "Pexels · photo 20488719"
+    },
+    {
+      "id": "gallery-fresh-lunch",
+      "image": "/assets/gallery/fresh-lunch.jpg",
+      "captured_at": "2026-06-27T12:38:00+02:00",
+      "title": "Lunch experiment",
+      "category": "Food",
+      "location": "Paris, France",
+      "source": "android_mediastore",
+      "origin": "Pexels · photo 1640777"
+    },
+    {
+      "id": "gallery-house-plants",
+      "image": "/assets/gallery/house-plants.jpg",
+      "captured_at": "2026-06-19T08:26:00+02:00",
+      "title": "Plants by the window",
+      "category": "Plants",
+      "location": "Paris, France",
+      "source": "android_mediastore",
+      "origin": "Pexels · photo 14320964"
+    },
+    {
+      "id": "gallery-live-concert",
+      "image": "/assets/gallery/live-concert.jpg",
+      "captured_at": "2026-06-12T23:17:00+02:00",
+      "title": "Summer show",
+      "category": "Events",
+      "location": "Paris, France",
+      "source": "android_mediastore",
+      "origin": "Pexels · photo 1190297"
+    },
+    {
+      "id": "gallery-living-room",
+      "image": "/assets/gallery/living-room.jpg",
+      "captured_at": "2026-05-30T14:48:00+02:00",
+      "title": "Weekend at home",
+      "category": "Places",
+      "location": "Paris, France",
+      "source": "web_folder",
+      "origin": "Pexels · photo 8782754"
+    },
+    {
+      "id": "gallery-market",
+      "image": "/assets/gallery/market-produce.jpg",
+      "captured_at": "2026-05-23T11:06:00+02:00",
+      "title": "Saturday groceries",
+      "category": "Everyday",
+      "location": "Paris, France",
+      "source": "android_mediastore",
+      "origin": "Pexels · photo 264636"
+    },
+    {
+      "id": "gallery-mountain-lake",
+      "image": "/assets/gallery/mountain-lake.jpg",
+      "captured_at": "2026-04-18T06:54:00+02:00",
+      "title": "First light at the lake",
+      "category": "Outdoors",
+      "location": "Alps, France",
+      "source": "android_mediastore",
+      "origin": "Pexels · photo 417074"
+    },
+    {
+      "id": "gallery-waterfall",
+      "image": "/assets/gallery/waterfall-walk.jpg",
+      "captured_at": "2026-04-17T13:02:00+02:00",
+      "title": "Waterfall walk",
+      "category": "Outdoors",
+      "location": "Alps, France",
+      "source": "android_mediastore",
+      "origin": "Pexels · photo 358457"
+    },
+    {
+      "id": "gallery-workshop",
+      "image": "/assets/gallery/workshop-tools.jpg",
+      "captured_at": "2026-03-28T16:29:00+01:00",
+      "title": "Workshop before cleanup",
+      "category": "Projects",
+      "location": "Paris, France",
+      "source": "web_folder",
+      "origin": "Pexels · photo 12591659"
+    }
+  ],
+  "subjects": [
+    {
+      "id": "home-office",
+      "name": "Home office",
+      "kind": "space",
+      "icon": "space",
+      "cover": "/assets/photos/office-2026-06-11.png",
+      "photo_count": 42,
+      "range": "Jan 12 – Aug 18, 2026",
+      "duration": "8 months",
+      "summary": "A recurring workspace in the current apartment.",
+      "confidence": 0.98,
+      "aliases": ["the study", "my workspace"],
+      "latest_state": ["Sand ergonomic chair", "34-inch ultrawide monitor", "Pothos plant", "Desk lamp"],
+      "changes": [
+        {
+          "id": "chg-office-lamp",
+          "type": "ADDED",
+          "title": "Desk lamp added",
+          "when": "First visible Jun 4",
+          "confidence": 0.94,
+          "evidence": ["office-jan-12", "office-jun-04"]
+        },
+        {
+          "id": "chg-office-chair",
+          "type": "STATE_CHANGED",
+          "title": "Chair replaced",
+          "when": "Between Jun 4 and Jun 11",
+          "confidence": 0.96,
+          "evidence": ["office-jun-04", "office-jun-11"]
+        },
+        {
+          "id": "chg-office-monitor",
+          "type": "STATE_CHANGED",
+          "title": "Monitor upgraded",
+          "when": "Between Jun 4 and Jun 11",
+          "confidence": 0.98,
+          "evidence": ["office-jun-04", "office-jun-11"]
+        },
+        {
+          "id": "chg-office-plant",
+          "type": "ADDED",
+          "title": "Pothos plant added",
+          "when": "First visible Jun 11",
+          "confidence": 0.99,
+          "evidence": ["office-jun-04", "office-jun-11"]
+        }
+      ],
+      "coverage": {
+        "score": 0.88,
+        "note": "Strong fixed-view coverage. No usable photo from June 5–10."
+      }
+    },
+    {
+      "id": "white-rental-car",
+      "name": "White rental car",
+      "kind": "vehicle",
+      "icon": "car",
+      "cover": "/assets/photos/car-pickup-front-left.png",
+      "photo_count": 18,
+      "range": "Aug 3 – Aug 8, 2026",
+      "duration": "6 days",
+      "summary": "Automatically assembled from a Barcelona travel burst.",
+      "confidence": 0.97,
+      "aliases": ["Barcelona rental", "airport car"],
+      "latest_state": ["Returned", "Front-left scuff documented", "Rear-right scratch unverified"],
+      "changes": [
+        {
+          "id": "chg-car-front",
+          "type": "APPEARANCE_UNCHANGED",
+          "title": "Front-left scuff already present",
+          "when": "Visible at pickup and return",
+          "confidence": 0.97,
+          "evidence": ["car-pickup-front-left", "car-return-front-left"]
+        },
+        {
+          "id": "chg-car-rear",
+          "type": "UNVERIFIABLE",
+          "title": "Rear-right scratch",
+          "when": "Visible at return; pickup unknown",
+          "confidence": 0.18,
+          "evidence": ["car-return-rear-right"]
+        }
+      ],
+      "coverage": {
+        "score": 0.72,
+        "note": "Pickup set has no clear rear-right bumper view.",
+        "views": [
+          {"name": "Front-left", "pickup": true, "return": true},
+          {"name": "Front-right", "pickup": true, "return": true},
+          {"name": "Rear-left", "pickup": true, "return": true},
+          {"name": "Rear-right", "pickup": false, "return": true},
+          {"name": "Interior", "pickup": true, "return": true}
+        ]
+      }
+    },
+    {
+      "id": "blue-bike-project",
+      "name": "Blue bike restoration",
+      "kind": "project",
+      "icon": "project",
+      "cover": "/assets/photos/bike-2026-02-08.png",
+      "photo_count": 21,
+      "range": "Feb 8 – May 29, 2026",
+      "duration": "4 months",
+      "summary": "A restoration reconstructed as stages, not an album.",
+      "confidence": 0.93,
+      "aliases": ["old blue bike", "basement bicycle"],
+      "latest_state": ["Reassembled", "Deep blue finish", "Road tested"],
+      "changes": [
+        {
+          "id": "stage-bike-1",
+          "type": "PROGRESSED",
+          "title": "Documented",
+          "when": "Feb 8",
+          "confidence": 0.99,
+          "evidence": ["bike-feb-08"]
+        },
+        {
+          "id": "stage-bike-2",
+          "type": "PROGRESSED",
+          "title": "Stripped and prepared",
+          "when": "Mar 1",
+          "confidence": 0.96,
+          "evidence": ["bike-mar-01"]
+        },
+        {
+          "id": "stage-bike-3",
+          "type": "PROGRESSED",
+          "title": "Primed",
+          "when": "Mar 16",
+          "confidence": 0.91,
+          "evidence": ["bike-mar-01"]
+        },
+        {
+          "id": "stage-bike-4",
+          "type": "PROGRESSED",
+          "title": "Painted and reassembled",
+          "when": "Apr 22 – May 18",
+          "confidence": 0.89,
+          "evidence": ["bike-mar-01", "bike-feb-08"]
+        },
+        {
+          "id": "stage-bike-5",
+          "type": "PROGRESSED",
+          "title": "Completed",
+          "when": "First visible May 29",
+          "confidence": 0.95,
+          "evidence": ["bike-feb-08"]
+        }
+      ],
+      "coverage": {
+        "score": 0.84,
+        "note": "Strong stage coverage; paint curing itself was not photographed."
+      }
+    },
+    {
+      "id": "balcony-plant",
+      "name": "Balcony pothos",
+      "kind": "plant",
+      "icon": "plant",
+      "cover": "/assets/photos/office-2026-06-11.png",
+      "photo_count": 17,
+      "range": "Nov 2025 – Aug 2026",
+      "duration": "9 months",
+      "summary": "A recurring plant observed across the apartment and balcony.",
+      "confidence": 0.86,
+      "aliases": ["the pothos"],
+      "latest_state": ["Healthy", "New trailing growth"],
+      "changes": [
+        {
+          "id": "chg-plant-growth",
+          "type": "PROGRESSED",
+          "title": "Visible new growth",
+          "when": "May – August",
+          "confidence": 0.82,
+          "evidence": ["office-jun-11"]
+        }
+      ],
+      "coverage": {
+        "score": 0.63,
+        "note": "Incidental coverage only; leaf count cannot be compared reliably."
+      }
+    }
+  ],
+  "assets": [
+    {
+      "id": "office-jan-12",
+      "subject_id": "home-office",
+      "image": "/assets/photos/office-2026-01-12.png",
+      "captured_at": "2026-01-12T09:18:00+01:00",
+      "label": "January baseline",
+      "observation": "Dark mesh chair; 24-inch monitor; right desk corner empty; no desk lamp.",
+      "region": "workspace/full-frame",
+      "confidence": 0.98,
+      "source": "android_mediastore",
+      "synthetic": true
+    },
+    {
+      "id": "office-jun-04",
+      "subject_id": "home-office",
+      "image": "/assets/photos/office-2026-06-04.png",
+      "captured_at": "2026-06-04T16:42:00+02:00",
+      "label": "Last old-chair evidence",
+      "observation": "Same dark mesh chair and 24-inch monitor; desk lamp now present.",
+      "region": "workspace/chair-and-desk",
+      "confidence": 0.97,
+      "source": "android_mediastore",
+      "synthetic": true
+    },
+    {
+      "id": "office-jun-11",
+      "subject_id": "home-office",
+      "image": "/assets/photos/office-2026-06-11.png",
+      "captured_at": "2026-06-11T17:05:00+02:00",
+      "label": "First new-chair evidence",
+      "observation": "Sand ergonomic chair, ultrawide monitor and pothos plant now visible.",
+      "region": "workspace/chair-desk-right-corner",
+      "confidence": 0.99,
+      "source": "android_mediastore",
+      "synthetic": true
+    },
+    {
+      "id": "car-pickup-front-left",
+      "subject_id": "white-rental-car",
+      "image": "/assets/photos/car-pickup-front-left.png",
+      "captured_at": "2026-08-03T10:12:00+02:00",
+      "label": "Pickup · front-left",
+      "observation": "Short horizontal scuff visible on lower front-left bumper.",
+      "region": "vehicle/front-left-bumper",
+      "confidence": 0.97,
+      "source": "android_picker",
+      "synthetic": true
+    },
+    {
+      "id": "car-return-front-left",
+      "subject_id": "white-rental-car",
+      "image": "/assets/photos/car-return-front-left.png",
+      "captured_at": "2026-08-08T08:31:00+02:00",
+      "label": "Return · front-left",
+      "observation": "Matching scuff remains at the same bumper position.",
+      "region": "vehicle/front-left-bumper",
+      "confidence": 0.98,
+      "source": "android_picker",
+      "synthetic": true
+    },
+    {
+      "id": "car-return-rear-right",
+      "subject_id": "white-rental-car",
+      "image": "/assets/photos/car-return-rear-right.png",
+      "captured_at": "2026-08-08T08:34:00+02:00",
+      "label": "Return · rear-right",
+      "observation": "Thin horizontal scratch visible below right tail light.",
+      "region": "vehicle/rear-right-bumper",
+      "confidence": 0.95,
+      "source": "android_picker",
+      "synthetic": true
+    },
+    {
+      "id": "bike-feb-08",
+      "subject_id": "blue-bike-project",
+      "image": "/assets/photos/bike-2026-02-08.png",
+      "captured_at": "2026-02-08T14:20:00+01:00",
+      "label": "Before restoration",
+      "observation": "Faded petrol-blue frame with surface rust; bicycle fully assembled.",
+      "region": "project/full-bicycle",
+      "confidence": 0.99,
+      "source": "web_folder",
+      "synthetic": true
+    },
+    {
+      "id": "bike-mar-01",
+      "subject_id": "blue-bike-project",
+      "image": "/assets/photos/bike-2026-03-01.png",
+      "captured_at": "2026-03-01T11:05:00+01:00",
+      "label": "Stripped and prepared",
+      "observation": "Frame disassembled and partially sanded to bare steel.",
+      "region": "project/frame",
+      "confidence": 0.97,
+      "source": "web_folder",
+      "synthetic": true
+    }
+  ],
+  "use_cases": [
+    {
+      "id": "rental-car",
+      "name": "Rental car",
+      "eyebrow": "Ready",
+      "description": "Pickup and return evidence, visible marks and missing views.",
+      "subject_id": "white-rental-car",
+      "found": "18 likely photos · Barcelona · Aug 3–8",
+      "accent": "coral",
+      "status": "ready"
+    },
+    {
+      "id": "spaces",
+      "name": "Spaces",
+      "eyebrow": "4 places found",
+      "description": "Rooms and workspaces reconstructed as changing state.",
+      "subject_id": "home-office",
+      "found": "Home office has 4 supported changes",
+      "accent": "violet",
+      "status": "ready"
+    },
+    {
+      "id": "projects",
+      "name": "Projects",
+      "eyebrow": "3 projects found",
+      "description": "Turn scattered progress photos into meaningful stages.",
+      "subject_id": "blue-bike-project",
+      "found": "Bike restoration · 5 stages",
+      "accent": "blue",
+      "status": "ready"
+    },
+    {
+      "id": "leave-behind",
+      "name": "Leave-behind",
+      "eyebrow": "Travel",
+      "description": "Check whether important objects were visible before leaving.",
+      "found": "2 possible trips",
+      "accent": "mint",
+      "status": "suggested"
+    },
+    {
+      "id": "rental-property",
+      "name": "Rental property",
+      "eyebrow": "Evidence",
+      "description": "Move-in and move-out condition with room coverage.",
+      "found": "Possible apartment timeline",
+      "accent": "amber",
+      "status": "suggested"
+    },
+    {
+      "id": "plant-garden",
+      "name": "Plant & garden",
+      "eyebrow": "5 plants found",
+      "description": "Growth, stress and care history grounded in repeat photos.",
+      "subject_id": "balcony-plant",
+      "found": "Balcony pothos · 9 months",
+      "accent": "green",
+      "status": "suggested"
+    },
+    {
+      "id": "home-maintenance",
+      "name": "Home maintenance",
+      "eyebrow": "Recurring",
+      "description": "Find when wear, leaks or fixtures first changed.",
+      "found": "No strong case yet",
+      "accent": "blue",
+      "status": "empty"
+    },
+    {
+      "id": "disaster",
+      "name": "Disaster documentation",
+      "eyebrow": "Preparedness",
+      "description": "Build before/after evidence without claiming causation.",
+      "found": "Start a record manually",
+      "accent": "coral",
+      "status": "empty"
+    },
+    {
+      "id": "kit-condition",
+      "name": "Kit & condition",
+      "eyebrow": "Equipment",
+      "description": "Track recurring tools, gear and their condition.",
+      "found": "Workshop kit candidate",
+      "accent": "violet",
+      "status": "suggested"
+    }
+  ],
+  "memory": {
+    "aliases": [
+      {"term": "the study", "means": "Home office", "source": "user correction"},
+      {"term": "old blue bike", "means": "Blue bike restoration", "source": "conversation"}
+    ],
+    "preferences": [
+      {"statement": "Ignore small object movements on the desk unless asked.", "source": "learned from feedback"},
+      {"statement": "Prioritise plants, projects and rental evidence.", "source": "repeated questions"}
+    ],
+    "corrections": []
+  },
+  "agent_activity": [
+    {
+      "time": "18:08",
+      "title": "Incremental gallery scan completed",
+      "detail": "18 new photos · 2 duplicates skipped · 3 subjects updated",
+      "status": "complete"
+    },
+    {
+      "time": "18:09",
+      "title": "Rental-car case updated",
+      "detail": "Return burst matched · rear-right pickup coverage gap retained",
+      "status": "attention"
+    },
+    {
+      "time": "18:10",
+      "title": "Workspace timeline revised",
+      "detail": "Chair and monitor changes bounded to Jun 4–11",
+      "status": "complete"
+    }
+  ],
+  "ingestion_runs": []
+}

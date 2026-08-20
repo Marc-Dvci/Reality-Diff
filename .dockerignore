@@ -1,0 +1,14 @@
+.git
+.github
+.venv
+.gradle
+.ruff_cache
+.pytest_cache
+__pycache__
+*.pyc
+android
+docs
+infrastructure
+tests
+var/*.json
+Plan for 2nd project.txt
