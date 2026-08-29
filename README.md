@@ -2,6 +2,8 @@
 
 **Semantic memory for the physical world.** Reality Diff turns an ordinary photo history into an evidence-linked model of persistent places, objects, vehicles, and projects. It answers what changed, when the evidence bounds that change, and what the original photographs actually prove.
 
+**Live app (public, no account):** <https://reality-diff-284853036406.us-central1.run.app>
+
 The project is a complete responsive web product, FastAPI service, Google ADK agent, and native Android client. It has a zero-credential sample mode and a live Google Cloud mode; the UI always labels which one is active.
 
 ## Product capabilities
@@ -15,7 +17,7 @@ The project is a complete responsive web product, FastAPI service, Google ADK ag
 - Google ADK collaborative partner with bounded temporal search, subject inspection, and explicit correction-memory tools.
 - Evidence-linked sample questions with ambiguity handling, last-seen/first-seen intervals, coverage-aware uncertainty, and persistent corrections.
 - Native Android Photo Picker, optional MediaStore discovery, incremental JobScheduler sync, safe multipart upload, and shared sample assets—without a WebView.
-- Cloud Run, Firestore, Cloud Storage, Pub/Sub, Artifact Registry, least-privilege service identity, health probes, and dead-letter infrastructure in Terraform.
+- Cloud Run, Firestore, Cloud Storage, Pub/Sub with an asynchronous push-driven state-construction worker, Artifact Registry, least-privilege service identity, health probes, and dead-letter infrastructure in Terraform.
 
 ## Google model stack
 
@@ -96,8 +98,9 @@ The detailed verification record is in [docs/BUILD_AUDIT.md](docs/BUILD_AUDIT.md
 
 ## Google Cloud deployment
 
-The private production deployment is live:
+The production deployment is live and public, no account required:
 
+- **Live app:** <https://reality-diff-284853036406.us-central1.run.app>
 - Project ID: `reality-diff`
 - Project number: `284853036406`
 - Region: `us-central1` (`global` for Vertex AI)
@@ -105,7 +108,7 @@ The private production deployment is live:
 - Cost profile: scale to zero, at most two 1 vCPU / 512 MiB instances
 - Budget alerts: project-scoped €10 monthly guardrail
 
-The service is intentionally private until judge access is prepared. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for access and operations, and [docs/CLOUD_DEPLOYMENT_EVIDENCE.md](docs/CLOUD_DEPLOYMENT_EVIDENCE.md) for the live test record and screenshots.
+The app takes no account: each visitor gets an anonymous per-browser token, and every upload, view, and deletion is scoped to it, so no visitor can reach another's photos. Originals are served only through an ownership-checked route over a bucket with public-access prevention. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for operations, [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the per-visitor isolation model and the asynchronous ingestion stage, and [docs/CLOUD_DEPLOYMENT_EVIDENCE.md](docs/CLOUD_DEPLOYMENT_EVIDENCE.md) for the live test record and screenshots.
 
 ## Repository map
 

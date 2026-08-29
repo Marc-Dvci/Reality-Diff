@@ -11,7 +11,7 @@ Resource creation can incur Google Cloud charges. Review the Terraform plan befo
 
 ## Current deployment
 
-The private production service was deployed on 20 August 2026:
+The production service was first deployed (private) on 20 August 2026 and made public for judging on 27 August 2026:
 
 - URL: `https://reality-diff-284853036406.us-central1.run.app`
 - Ready revision: `reality-diff-v010-20260820-probes`

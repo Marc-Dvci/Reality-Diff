@@ -1,6 +1,6 @@
 # Cloud deployment evidence
 
-Verified on 20 August 2026 against Google Cloud project `reality-diff` (`284853036406`). The service remains private; captures used Google's authenticated Cloud Run proxy and did not add an `allUsers` IAM binding.
+Verified on 20 August 2026 against Google Cloud project `reality-diff` (`284853036406`), when the service was still private; these captures used Google's authenticated Cloud Run proxy. The service was made public for judging on 27 August 2026 (`allUsers` → `roles/run.invoker`), and each visitor's uploads are isolated behind an anonymous per-browser token (see [ARCHITECTURE.md](ARCHITECTURE.md)).
 
 ## Deployed revision
 
@@ -16,7 +16,7 @@ Verified on 20 August 2026 against Google Cloud project `reality-diff` (`2848530
 | Scaling | min 0, max 2; CPU throttled outside request handling |
 | Health checks | HTTP `/ready` startup probe and `/health` liveness probe |
 | Identity | `reality-diff-runtime@reality-diff.iam.gserviceaccount.com` |
-| Access | Private; Cloud Run IAM contains no `allUsers` binding |
+| Access | Private at capture time; made public for judging on 27 August 2026 |
 
 ## Google services
 
@@ -80,4 +80,4 @@ Every captured page passed the screenshot harness: no horizontal overflow and no
 gcloud run services proxy reality-diff --project reality-diff --region us-central1 --port 8091
 ```
 
-Open `http://127.0.0.1:8091`. Public judge access should be enabled only when the submission access strategy is prepared.
+Open `http://127.0.0.1:8091`. The service is now public for judging; this proxy remains available for private, authenticated access during development.
