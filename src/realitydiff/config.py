@@ -44,6 +44,12 @@ class Settings:
             "REALITYDIFF_PUBSUB_TOPIC", "reality-diff-ingestion"
         )
     )
+    # Shared secret that gates the Pub/Sub push endpoint for the asynchronous
+    # state-construction stage. Unset locally (the stage is disabled); Terraform sets it
+    # in production and puts the same value in the push subscription URL.
+    pipeline_token: str | None = field(
+        default_factory=lambda: os.getenv("REALITYDIFF_PIPELINE_TOKEN")
+    )
     uploads_root: Path = field(
         default_factory=lambda: Path(
             os.getenv("REALITYDIFF_UPLOADS_ROOT", str(project_root() / "var" / "uploads"))

@@ -19,6 +19,7 @@ class FirestoreStateBackend:
             "corrections": self._collection(client, "corrections", "created_at", 250),
             "ingestion_runs": self._collection(client, "ingestion_runs", "started_at", 20),
             "uploads": self._collection(client, "uploads", "captured_at", 250),
+            "subject_states": self._collection(client, "subject_states", "updated_at", 250),
         }
 
     def put(self, collection: str, document_id: str, value: dict[str, Any]) -> None:

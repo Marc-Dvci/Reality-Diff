@@ -37,6 +37,21 @@ def _conversation_id(tool_context: Any) -> str:
     return str(session_id) if session_id else "adk-session"
 
 
+def _owner_id(tool_context: Any) -> str | None:
+    """The anonymous owner token the orchestrator stored in the ADK session state.
+
+    Every evidence tool passes this into its reasoner so a turn can only ever read the
+    uploads and corrections that belong to the visitor who started the session.
+    """
+    state = getattr(tool_context, "state", None)
+    if state is None:
+        return None
+    try:
+        return state.get("owner_id")
+    except (AttributeError, TypeError):
+        return None
+
+
 def build_adk_agent(repository: WorldRepository) -> Any:
     """Build the Collaborative Partner with repository-scoped, evidence-linked tools."""
     try:
@@ -68,7 +83,11 @@ def build_adk_agent(repository: WorldRepository) -> Any:
         gap or clarification verbatim.
         """
         answer = reasoner.answer(
-            AskRequest(question=question, conversation_id=_conversation_id(tool_context))
+            AskRequest(
+                question=question,
+                conversation_id=_conversation_id(tool_context),
+                owner_id=_owner_id(tool_context),
+            )
         )
         return answer.model_dump_json()
 
@@ -81,7 +100,11 @@ def build_adk_agent(repository: WorldRepository) -> Any:
         conversation_id = _conversation_id(tool_context)
         try:
             answer = imported_reasoner.answer(
-                AskRequest(question=question, conversation_id=conversation_id)
+                AskRequest(
+                    question=question,
+                    conversation_id=conversation_id,
+                    owner_id=_owner_id(tool_context),
+                )
             )
         except Exception:
             answer = None
@@ -117,9 +140,12 @@ def build_adk_agent(repository: WorldRepository) -> Any:
                 kind=kind,  # type: ignore[arg-type]
                 subject_id=subject_id or None,
                 statement=statement,
+                owner_id=_owner_id(tool_context),
             )
         )
-        return correction.model_dump_json()
+        stored = correction.model_dump()
+        stored.pop("owner_id", None)
+        return json.dumps(stored)
 
     return Agent(
         name="reality_diff_partner",

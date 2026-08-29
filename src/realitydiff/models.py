@@ -35,6 +35,9 @@ class AskRequest(BaseModel):
     conversation_id: str = Field(default="judge-demo", min_length=1, max_length=100)
     context_subject_id: str | None = None
     history: list[ConversationTurn] = Field(default_factory=list, max_length=40)
+    # Set server-side from the anonymous owner cookie; any client-supplied value is
+    # overwritten so one visitor can never reason over another's private uploads.
+    owner_id: str | None = None
 
 
 class AgentStep(BaseModel):
@@ -66,6 +69,7 @@ class CorrectionRequest(BaseModel):
     kind: Literal["identity", "alias", "significance", "evidence", "category"]
     subject_id: str | None = None
     statement: str = Field(min_length=3, max_length=500)
+    owner_id: str | None = None  # Set server-side from the owner cookie.
 
 
 class Correction(BaseModel):
@@ -74,6 +78,7 @@ class Correction(BaseModel):
     kind: str
     subject_id: str | None
     statement: str
+    owner_id: str | None = None
     created_at: str = Field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     )

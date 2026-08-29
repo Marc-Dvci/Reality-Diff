@@ -68,7 +68,7 @@ class TemporalReasoner:
         )
 
     def _chair_answer(self, request: AskRequest) -> Answer:
-        memory = self.repository.corrections(request.conversation_id)
+        memory = self.repository.corrections(request.conversation_id, request.owner_id)
         merge = next(
             (
                 item["statement"]

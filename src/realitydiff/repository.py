@@ -33,6 +33,7 @@ class WorldRepository:
             "corrections": [],
             "ingestion_runs": [],
             "uploads": [],
+            "subject_states": [],
         }
         if cloud_state is not None:
             self._state.update(cloud_state.load())
@@ -45,16 +46,36 @@ class WorldRepository:
                 # A damaged demo-state file must not hide the immutable fixture.
                 # It is ignored and replaced on the next valid mutation.
                 pass
-        for key in ("corrections", "ingestion_runs", "uploads"):
+        for key in ("corrections", "ingestion_runs", "uploads", "subject_states"):
             if not isinstance(self._state.get(key), list):
                 self._state[key] = []
 
-    def bootstrap(self) -> dict[str, Any]:
+    def refresh(self) -> None:
+        """Re-read cloud state so a worker sees writes made by other Cloud Run instances.
+
+        Each instance keeps an in-process cache primed at startup; the asynchronous
+        consolidation stage may run on a different instance than the upload, so it reloads
+        the authoritative Firestore state before it reads. A no-op in local mode.
+        """
+        if self._cloud_state is None:
+            return
+        with self._lock:
+            self._state.update(self._cloud_state.load())
+
+    def bootstrap(self, owner_id: str | None = None) -> dict[str, Any]:
         with self._lock:
             payload = deepcopy(self._world)
-            payload["memory"]["corrections"] = deepcopy(self._state["corrections"])
+            payload["memory"]["corrections"] = [
+                _public_correction(item)
+                for item in self._state["corrections"]
+                if item.get("owner_id") == owner_id
+            ]
             payload["ingestion_runs"] = deepcopy(self._state["ingestion_runs"])
-            uploads = [_public_upload(item) for item in self._state.get("uploads", [])]
+            uploads = [
+                _public_upload(item)
+                for item in self._state.get("uploads", [])
+                if item.get("owner_id") == owner_id
+            ]
             payload.setdefault("gallery", [])
             payload["gallery"] = uploads + payload["gallery"]
             payload["summary"]["photos_indexed"] += len(uploads)
@@ -87,18 +108,27 @@ class WorldRepository:
             kind=request.kind,
             subject_id=request.subject_id,
             statement=request.statement.strip(),
+            owner_id=request.owner_id,
         )
         with self._lock:
             self._state["corrections"].append(correction.model_dump())
             self._persist_item("corrections", correction.correction_id, correction.model_dump())
         return correction
 
-    def corrections(self, conversation_id: str | None = None) -> list[dict[str, Any]]:
+    def corrections(
+        self, conversation_id: str | None = None, owner_id: str | None = None
+    ) -> list[dict[str, Any]]:
         with self._lock:
             values = deepcopy(self._state["corrections"])
-        if conversation_id is None:
-            return values
-        return [item for item in values if item["conversation_id"] == conversation_id]
+
+        def keep(item: dict[str, Any]) -> bool:
+            if conversation_id is not None and item["conversation_id"] != conversation_id:
+                return False
+            if owner_id is not None and item.get("owner_id") != owner_id:
+                return False
+            return True
+
+        return [_public_correction(item) for item in values if keep(item)]
 
     def add_ingestion_run(self, run: dict[str, Any]) -> dict[str, Any]:
         with self._lock:
@@ -115,36 +145,47 @@ class WorldRepository:
             self._persist_item("uploads", str(upload["id"]), upload)
         return _public_upload(upload)
 
-    def upload_by_hash(self, digest: str) -> dict[str, Any] | None:
+    def upload_by_hash(self, digest: str, owner_id: str | None = None) -> dict[str, Any] | None:
         with self._lock:
             return next(
                 (
                     _public_upload(item)
                     for item in self._state.get("uploads", [])
-                    if item.get("sha256") == digest
+                    if item.get("sha256") == digest and item.get("owner_id") == owner_id
                 ),
                 None,
             )
 
-    def uploads_for_reasoning(self, limit: int = 250) -> list[dict[str, Any]]:
+    def uploads_for_reasoning(
+        self, owner_id: str | None = None, limit: int = 250
+    ) -> list[dict[str, Any]]:
         with self._lock:
-            return deepcopy(self._state.get("uploads", [])[:limit])
+            owned = [
+                item
+                for item in self._state.get("uploads", [])
+                if item.get("owner_id") == owner_id
+            ]
+            return deepcopy(owned[:limit])
 
-    def upload(self, upload_id: str) -> dict[str, Any] | None:
+    def upload(self, upload_id: str, owner_id: str | None = None) -> dict[str, Any] | None:
         with self._lock:
             return next(
                 (
                     deepcopy(item)
                     for item in self._state.get("uploads", [])
-                    if item.get("id") == upload_id
+                    if item.get("id") == upload_id and item.get("owner_id") == owner_id
                 ),
                 None,
             )
 
-    def delete_upload(self, upload_id: str) -> bool:
+    def delete_upload(self, upload_id: str, owner_id: str | None = None) -> bool:
         with self._lock:
             uploads = self._state.get("uploads", [])
-            retained = [item for item in uploads if item.get("id") != upload_id]
+            retained = [
+                item
+                for item in uploads
+                if not (item.get("id") == upload_id and item.get("owner_id") == owner_id)
+            ]
             if len(retained) == len(uploads):
                 return False
             self._state["uploads"] = retained
@@ -153,6 +194,27 @@ class WorldRepository:
             else:
                 self._persist()
             return True
+
+    def record_subject_state(self, state: dict[str, Any]) -> dict[str, Any]:
+        """Upsert one owner+subject consolidation produced by the async stage."""
+        state_id = str(state["state_id"])
+        with self._lock:
+            self._state.setdefault("subject_states", [])
+            retained = [
+                item for item in self._state["subject_states"] if item.get("state_id") != state_id
+            ]
+            retained.insert(0, deepcopy(state))
+            self._state["subject_states"] = retained[:250]
+            self._persist_item("subject_states", state_id, state)
+        return deepcopy(state)
+
+    def subject_states(self, owner_id: str | None = None) -> list[dict[str, Any]]:
+        with self._lock:
+            return [
+                deepcopy(item)
+                for item in self._state.get("subject_states", [])
+                if owner_id is None or item.get("owner_id") == owner_id
+            ]
 
     def _persist(self) -> None:
         if self._state_path is None:
@@ -171,6 +233,12 @@ class WorldRepository:
 
 def _public_upload(upload: dict[str, Any]) -> dict[str, Any]:
     value = deepcopy(upload)
-    for private_field in ("_embedding", "sha256", "storage_key"):
+    for private_field in ("_embedding", "sha256", "storage_key", "owner_id"):
         value.pop(private_field, None)
+    return value
+
+
+def _public_correction(correction: dict[str, Any]) -> dict[str, Any]:
+    value = deepcopy(correction)
+    value.pop("owner_id", None)
     return value

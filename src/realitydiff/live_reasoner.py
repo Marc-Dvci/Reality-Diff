@@ -17,7 +17,7 @@ class GeminiTemporalReasoner:
         self.analyzer = analyzer
 
     def answer(self, request: AskRequest) -> Answer | None:
-        uploads = self.retrieve_uploads(request.question, 12)
+        uploads = self.retrieve_uploads(request.question, request.owner_id, 12)
         if not uploads:
             return None
 
@@ -25,7 +25,7 @@ class GeminiTemporalReasoner:
         raw = self.analyzer.reason_about_observations(
             request.question,
             observations,
-            self.repository.corrections(request.conversation_id),
+            self.repository.corrections(request.conversation_id, request.owner_id),
         )
         allowed = {str(item["id"]): item for item in uploads}
         evidence = [
@@ -70,10 +70,12 @@ class GeminiTemporalReasoner:
             ],
         )
 
-    def retrieve_uploads(self, question: str, limit: int = 12) -> list[dict[str, Any]]:
+    def retrieve_uploads(
+        self, question: str, owner_id: str | None = None, limit: int = 12
+    ) -> list[dict[str, Any]]:
         uploads = [
             item
-            for item in self.repository.uploads_for_reasoning()
+            for item in self.repository.uploads_for_reasoning(owner_id)
             if item.get("status") == "analyzed" and item.get("analysis")
         ]
         if not uploads:

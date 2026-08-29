@@ -72,11 +72,30 @@ resource "google_pubsub_topic" "dead_letter" {
   depends_on = [google_project_service.required]
 }
 
+# Shared secret gating the asynchronous state-construction endpoint. The same value is
+# handed to the Cloud Run container and embedded in the push subscription URL, so only
+# Pub/Sub can drive the stage even though the demo service permits public invoke.
+resource "random_password" "pipeline_token" {
+  length  = 32
+  special = false
+}
+
 resource "google_pubsub_subscription" "ingestion" {
   name                       = "reality-diff-ingestion-worker"
   topic                      = google_pubsub_topic.ingestion.id
   ack_deadline_seconds       = 120
   message_retention_duration = "86400s"
+
+  # Push delivery to the scale-to-zero Cloud Run service: the state-construction stage runs
+  # only when a media.indexed event arrives, so there is still no always-on worker. OIDC
+  # authenticates the push at the Cloud Run layer; the token gates it at the app layer.
+  push_config {
+    push_endpoint = "${google_cloud_run_v2_service.app.uri}/api/v1/pipeline/media-indexed?token=${random_password.pipeline_token.result}"
+
+    oidc_token {
+      service_account_email = google_service_account.runtime.email
+    }
+  }
 
   retry_policy {
     minimum_backoff = "10s"
@@ -87,6 +106,21 @@ resource "google_pubsub_subscription" "ingestion" {
     dead_letter_topic     = google_pubsub_topic.dead_letter.id
     max_delivery_attempts = 5
   }
+}
+
+# Pub/Sub mints the OIDC token as the runtime service account, and delivers it to Cloud Run.
+resource "google_service_account_iam_member" "pubsub_token_creator" {
+  service_account_id = google_service_account.runtime.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:service-${data.google_project.current.number}@gcp-sa-pubsub.iam.gserviceaccount.com"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "pipeline_invoker" {
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.app.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.runtime.email}"
 }
 
 data "google_project" "current" {
@@ -176,6 +210,10 @@ resource "google_cloud_run_v2_service" "app" {
       env {
         name  = "REALITYDIFF_PUBSUB_TOPIC"
         value = google_pubsub_topic.ingestion.name
+      }
+      env {
+        name  = "REALITYDIFF_PIPELINE_TOKEN"
+        value = random_password.pipeline_token.result
       }
       env {
         name  = "REALITYDIFF_GEMINI_MODEL"

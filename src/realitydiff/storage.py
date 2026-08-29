@@ -36,7 +36,8 @@ class LocalMediaStore:
         target.write_bytes(content)
         return StoredMedia(
             media_id=media_id,
-            url=f"/uploads/{filename}",
+            # Served through the owner-checked API route, never a public static mount.
+            url=f"/api/v1/media/{media_id}",
             storage_key=filename,
             backend="local",
         )

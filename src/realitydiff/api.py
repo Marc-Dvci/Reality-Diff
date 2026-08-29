@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import secrets
 from datetime import datetime, timezone
 from hashlib import sha256
 from io import BytesIO
 from uuid import uuid4
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image, UnidentifiedImageError
 
@@ -19,8 +20,9 @@ from .models import AskRequest, CorrectionRequest, IngestionRequest
 from .orchestrator import AdkOrchestrator
 from .pipeline import GeminiMediaAnalyzer
 from .repository import WorldRepository
-from .storage import LocalMediaStore, build_media_store
+from .storage import build_media_store
 from .temporal import TemporalReasoner
+from .worker import build_consolidator, decode_pubsub_event
 
 
 repository = WorldRepository(
@@ -34,11 +36,36 @@ live_reasoner = GeminiTemporalReasoner(repository, analyzer)
 orchestrator = AdkOrchestrator(repository, settings) if settings.live_model_enabled else None
 media_store = build_media_store(settings)
 event_publisher = build_event_publisher(settings)
+consolidator = build_consolidator(repository)
 app = FastAPI(
     title="Reality Diff API",
     description="Evidence-linked temporal reasoning over photo history.",
     version=__version__,
 )
+
+OWNER_COOKIE = "rd_owner"
+
+
+def resolve_owner(request: Request, response: Response) -> str:
+    """Anonymous per-browser identity for private uploads. No account required.
+
+    The public service is open to all, so every upload, gallery view, retrieval, and
+    deletion is scoped to a random owner token carried in an HttpOnly cookie. One visitor
+    can never see, retrieve, or delete another visitor's photos.
+    """
+    owner = request.cookies.get(OWNER_COOKIE)
+    if not owner:
+        owner = secrets.token_urlsafe(24)
+        response.set_cookie(
+            OWNER_COOKIE,
+            owner,
+            max_age=60 * 60 * 24 * 365,
+            httponly=True,
+            samesite="lax",
+            secure=request.url.scheme == "https",
+            path="/",
+        )
+    return owner
 
 
 @app.get("/health")
@@ -71,8 +98,8 @@ def ready() -> JSONResponse:
 
 
 @app.get("/api/v1/bootstrap")
-def bootstrap() -> dict[str, object]:
-    return repository.bootstrap()
+def bootstrap(owner: str = Depends(resolve_owner)) -> dict[str, object]:
+    return repository.bootstrap(owner)
 
 
 @app.get("/api/v1/subjects")
@@ -89,7 +116,10 @@ def subject(subject_id: str) -> dict[str, object]:
 
 
 @app.post("/api/v1/ask")
-async def ask(request: AskRequest) -> dict[str, object]:
+async def ask(request: AskRequest, owner: str = Depends(resolve_owner)) -> dict[str, object]:
+    # The owner is taken from the cookie, never from the body: a visitor can only ever
+    # reason over their own uploads, regardless of what the request claims.
+    request.owner_id = owner
     # Live deployments route the conversation through the Google ADK partner, which owns
     # tool choice, clarification, and multi-turn state. It falls back to the direct pipeline
     # so the offline demo and any orchestration hiccup still return a grounded answer.
@@ -108,13 +138,20 @@ async def ask(request: AskRequest) -> dict[str, object]:
 
 
 @app.post("/api/v1/corrections", status_code=201)
-def remember_correction(request: CorrectionRequest) -> dict[str, object]:
-    return repository.remember(request).model_dump()
+def remember_correction(
+    request: CorrectionRequest, owner: str = Depends(resolve_owner)
+) -> dict[str, object]:
+    request.owner_id = owner
+    stored = repository.remember(request).model_dump()
+    stored.pop("owner_id", None)
+    return stored
 
 
 @app.get("/api/v1/corrections")
-def corrections(conversation_id: str | None = None) -> list[dict[str, object]]:
-    return repository.corrections(conversation_id)
+def corrections(
+    conversation_id: str | None = None, owner: str = Depends(resolve_owner)
+) -> list[dict[str, object]]:
+    return repository.corrections(conversation_id, owner)
 
 
 @app.post("/api/v1/ingestion-runs", status_code=202)
@@ -144,6 +181,7 @@ def create_ingestion_run(request: IngestionRequest) -> dict[str, object]:
 async def analyze_media(
     files: list[UploadFile] = File(...),
     source: str = Form(default="web_upload"),
+    owner: str = Depends(resolve_owner),
 ) -> dict[str, object]:
     if source not in {"android_mediastore", "android_picker", "web_folder", "web_upload"}:
         raise HTTPException(status_code=422, detail="unsupported media source")
@@ -178,7 +216,7 @@ async def analyze_media(
     failures = 0
     event_failures = 0
     for upload, content, mime_type, captured_at, capture_time_source, digest in prepared:
-        existing = repository.upload_by_hash(digest)
+        existing = repository.upload_by_hash(digest, owner)
         if existing is not None:
             duplicates.append(
                 {
@@ -229,6 +267,9 @@ async def analyze_media(
                     {
                         "event_type": "media.indexed",
                         "media_id": stored.media_id,
+                        # The anonymous owner token (not PII) so the asynchronous stage
+                        # consolidates each visitor's subject state in isolation.
+                        "owner_id": owner,
                         "source": source,
                         "storage_key": stored.storage_key,
                         "captured_at": captured_at,
@@ -240,6 +281,7 @@ async def analyze_media(
                 event_failures += 1
         record: dict[str, object] = {
             "id": stored.media_id,
+            "owner_id": owner,
             "image": stored.url,
             "captured_at": captured_at,
             "capture_time_source": capture_time_source,
@@ -288,8 +330,10 @@ async def analyze_media(
 
 
 @app.get("/api/v1/media/{media_id}")
-def media(media_id: str) -> Response:
-    item = repository.upload(media_id)
+def media(media_id: str, owner: str = Depends(resolve_owner)) -> Response:
+    # Ownership is checked before a byte is read: a media id from another visitor's
+    # gallery resolves to nothing here.
+    item = repository.upload(media_id, owner)
     if item is None:
         raise HTTPException(status_code=404, detail="media not found")
     try:
@@ -305,18 +349,57 @@ def media(media_id: str) -> Response:
 
 
 @app.delete("/api/v1/media/{media_id}", status_code=204)
-async def delete_media(media_id: str) -> Response:
-    item = repository.upload(media_id)
+async def delete_media(media_id: str, owner: str = Depends(resolve_owner)) -> Response:
+    item = repository.upload(media_id, owner)
     if item is None:
         raise HTTPException(status_code=404, detail="media not found")
     try:
         await asyncio.to_thread(media_store.delete, str(item["storage_key"]))
-        deleted = await asyncio.to_thread(repository.delete_upload, media_id)
+        deleted = await asyncio.to_thread(repository.delete_upload, media_id, owner)
     except Exception:  # Storage and Firestore expose provider-specific exception types.
         raise HTTPException(status_code=503, detail="media deletion did not complete") from None
     if not deleted:
         raise HTTPException(status_code=404, detail="media not found")
     return Response(status_code=204)
+
+
+def _pipeline_authorized(request: Request) -> bool:
+    token = settings.pipeline_token
+    if not token:
+        return False
+    header = request.headers.get("authorization", "")
+    provided = request.query_params.get("token") or (
+        header[7:] if header.lower().startswith("bearer ") else ""
+    )
+    return bool(provided) and secrets.compare_digest(provided, token)
+
+
+@app.post("/api/v1/pipeline/media-indexed", include_in_schema=False)
+async def pipeline_media_indexed(request: Request) -> Response:
+    """Pub/Sub push target for the asynchronous state-construction stage.
+
+    This is not a user endpoint. Even though the demo service grants public invoke, the
+    stage is gated by a shared pipeline token that only Pub/Sub's push subscription carries,
+    so the open invoker permission cannot drive it. It returns 2xx to acknowledge a message
+    and a 5xx only on an unexpected fault, letting the subscription's retry and dead-letter
+    policy handle genuine failures.
+    """
+    if not settings.pipeline_token:
+        raise HTTPException(status_code=503, detail="pipeline worker not configured")
+    if not _pipeline_authorized(request):
+        raise HTTPException(status_code=403, detail="forbidden")
+    try:
+        envelope = await request.json()
+    except Exception:
+        # A body Pub/Sub can never re-serialize into valid JSON: ack so it does not loop.
+        return JSONResponse(status_code=200, content={"status": "ignored", "reason": "bad_body"})
+    event = decode_pubsub_event(envelope)
+    if event is None:
+        return JSONResponse(status_code=200, content={"status": "ignored", "reason": "malformed"})
+    result = await asyncio.to_thread(
+        consolidator.consolidate, str(event["media_id"]), event.get("owner_id")
+    )
+    return JSONResponse(status_code=200, content=result)
 
 
 @app.get("/api/v1/proof")
@@ -342,9 +425,8 @@ def proof() -> dict[str, object]:
 
 app.mount("/assets", StaticFiles(directory=settings.web_root / "assets"), name="assets")
 app.mount("/fixtures", StaticFiles(directory=settings.web_root / "fixtures"), name="fixtures")
-if isinstance(media_store, LocalMediaStore):
-    settings.uploads_root.mkdir(parents=True, exist_ok=True)
-    app.mount("/uploads", StaticFiles(directory=settings.uploads_root), name="uploads")
+# Uploaded media is never served from a public static mount. Every backend goes through the
+# owner-checked /api/v1/media/{id} route, so isolation cannot be bypassed by URL.
 
 
 @app.get("/", include_in_schema=False)

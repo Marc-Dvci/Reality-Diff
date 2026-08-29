@@ -50,8 +50,13 @@ class AdkOrchestrator:
         try:
             from google.genai import types
 
+            # ADK isolates state by (app, user_id, session_id). Keying the user on the
+            # anonymous owner token means one visitor's session, history, and tool results
+            # can never be reached from another visitor's turn, even if two browsers ever
+            # generated the same conversation_id.
+            owner = request.owner_id or "web"
             runner = self._ensure_runner()
-            await self._ensure_session(request.conversation_id)
+            await self._ensure_session(owner, request.conversation_id)
             message = types.Content(
                 role="user", parts=[types.Part.from_text(text=request.question)]
             )
@@ -59,7 +64,7 @@ class AdkOrchestrator:
             final_text = ""
             tool_calls: list[str] = []
             async for event in runner.run_async(
-                user_id="web",
+                user_id=owner,
                 session_id=request.conversation_id,
                 new_message=message,
             ):
@@ -75,16 +80,21 @@ class AdkOrchestrator:
         except Exception:
             return None
 
-    async def _ensure_session(self, conversation_id: str) -> None:
+    async def _ensure_session(self, owner: str, conversation_id: str) -> None:
         service = self._session_service
         if service is None:
             return
         existing = await service.get_session(
-            app_name=self.app_name, user_id="web", session_id=conversation_id
+            app_name=self.app_name, user_id=owner, session_id=conversation_id
         )
         if existing is None:
+            # The owner is carried in session state so the evidence tools scope every
+            # retrieval to this visitor's own uploads and corrections.
             await service.create_session(
-                app_name=self.app_name, user_id="web", session_id=conversation_id
+                app_name=self.app_name,
+                user_id=owner,
+                session_id=conversation_id,
+                state={"owner_id": owner},
             )
 
 

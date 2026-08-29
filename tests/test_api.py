@@ -1,4 +1,7 @@
+import base64
 from copy import deepcopy
+from dataclasses import replace
+import json
 
 from fastapi.testclient import TestClient
 import pytest
@@ -17,7 +20,12 @@ def isolate_mutable_demo_state(tmp_path):
     original_path = repository._state_path
     original_state = deepcopy(repository._state)
     repository._state_path = tmp_path / "state.json"
-    repository._state = {"corrections": [], "ingestion_runs": [], "uploads": []}
+    repository._state = {
+        "corrections": [],
+        "ingestion_runs": [],
+        "uploads": [],
+        "subject_states": [],
+    }
     try:
         yield
     finally:
@@ -107,7 +115,9 @@ def test_photo_upload_is_validated_saved_analyzed_and_added_to_gallery(
     assert uploaded["status"] == "queued"
     assert uploaded["analysis"]["pipeline"]["reasoning_model"] == "gemini-3.7-flash"
     assert client.get(f"/api/v1/media/{uploaded['id']}").content == image
-    assert repository.bootstrap()["gallery"][0]["id"] == uploaded["id"]
+    # The owner cookie set on upload flows back on bootstrap, so the gallery is this
+    # visitor's own view of their imports.
+    assert client.get("/api/v1/bootstrap").json()["gallery"][0]["id"] == uploaded["id"]
 
     duplicate = client.post(
         "/api/v1/media/analyze",
@@ -122,7 +132,53 @@ def test_photo_upload_is_validated_saved_analyzed_and_added_to_gallery(
     deleted = client.delete(f"/api/v1/media/{uploaded['id']}")
     assert deleted.status_code == 204
     assert client.get(f"/api/v1/media/{uploaded['id']}").status_code == 404
-    assert not repository.bootstrap()["gallery"][0].get("imported")
+    assert not client.get("/api/v1/bootstrap").json()["gallery"][0].get("imported")
+
+
+def test_uploads_are_isolated_between_anonymous_visitors(monkeypatch, tmp_path) -> None:
+    """The reviewer's two-profile test: visitor B must never reach visitor A's photo.
+
+    Each TestClient keeps its own cookie jar, so the two clients receive two distinct
+    anonymous owner tokens exactly as two clean browser profiles would.
+    """
+    monkeypatch.setattr(api, "media_store", LocalMediaStore(tmp_path / "uploads"))
+    image = (api.settings.web_root / "assets" / "gallery" / "living-room.jpg").read_bytes()
+
+    visitor_a = TestClient(app)
+    visitor_b = TestClient(app)
+
+    uploaded = visitor_a.post(
+        "/api/v1/media/analyze",
+        data={"source": "web_upload"},
+        files=[("files", ("secret.jpg", image, "image/jpeg"))],
+    ).json()["items"][0]
+    media_id = uploaded["id"]
+
+    # A sees and can read its own upload.
+    assert visitor_a.get(f"/api/v1/media/{media_id}").status_code == 200
+    assert any(item["id"] == media_id for item in visitor_a.get("/api/v1/bootstrap").json()["gallery"])
+
+    # B cannot discover it in the gallery, cannot fetch the bytes, cannot delete it.
+    assert all(
+        item.get("id") != media_id for item in visitor_b.get("/api/v1/bootstrap").json()["gallery"]
+    )
+    assert visitor_b.get(f"/api/v1/media/{media_id}").status_code == 404
+    assert visitor_b.delete(f"/api/v1/media/{media_id}").status_code == 404
+
+    # A's photo survived B's probing untouched.
+    assert visitor_a.get(f"/api/v1/media/{media_id}").status_code == 200
+
+
+def test_corrections_are_isolated_between_anonymous_visitors() -> None:
+    visitor_a = TestClient(app)
+    visitor_b = TestClient(app)
+    visitor_a.post(
+        "/api/v1/corrections",
+        json={"conversation_id": "judge-demo", "kind": "alias", "statement": "The study is my office."},
+    )
+    assert len(visitor_a.get("/api/v1/corrections?conversation_id=judge-demo").json()) == 1
+    # B shares the default conversation_id but must not see A's correction.
+    assert visitor_b.get("/api/v1/corrections?conversation_id=judge-demo").json() == []
 
 
 def test_photo_upload_rejects_content_type_spoofing() -> None:
@@ -132,6 +188,53 @@ def test_photo_upload_rejects_content_type_spoofing() -> None:
         files=[("files", ("not-a-photo.jpg", b"not really an image", "image/jpeg"))],
     )
     assert response.status_code == 415
+
+
+def _pubsub_envelope(media_id: str, owner_id: str) -> dict:
+    event = {"event_type": "media.indexed", "media_id": media_id, "owner_id": owner_id}
+    data = base64.b64encode(json.dumps(event).encode("utf-8")).decode("utf-8")
+    return {"message": {"data": data}, "subscription": "reality-diff-ingestion-worker"}
+
+
+def test_pipeline_push_endpoint_is_disabled_until_configured() -> None:
+    # No pipeline token in the demo settings: the async stage is closed, not open.
+    response = client.post("/api/v1/pipeline/media-indexed", json=_pubsub_envelope("m1", "o1"))
+    assert response.status_code == 503
+
+
+def test_pipeline_push_endpoint_requires_the_shared_token(monkeypatch) -> None:
+    monkeypatch.setattr(api, "settings", replace(api.settings, pipeline_token="pipe-secret"))
+    repository.add_upload(
+        {
+            "id": "m1",
+            "owner_id": "owner-a",
+            "status": "analyzed",
+            "captured_at": "2026-06-04T09:00:00Z",
+            "image": "/api/v1/media/m1",
+            "analysis": {"candidate_subject": "Home office", "description": "Desk with a lamp."},
+        }
+    )
+    envelope = _pubsub_envelope("m1", "owner-a")
+
+    # A push without the token is rejected even though the service allows public invoke.
+    assert client.post("/api/v1/pipeline/media-indexed", json=envelope).status_code == 403
+
+    # With the token, the async state-construction stage runs and commits subject state.
+    response = client.post("/api/v1/pipeline/media-indexed?token=pipe-secret", json=envelope)
+    assert response.status_code == 200
+    assert response.json()["status"] == "consolidated"
+    assert repository.subject_states("owner-a")[0]["subject"] == "Home office"
+
+
+def test_pipeline_push_endpoint_acknowledges_malformed_messages(monkeypatch) -> None:
+    monkeypatch.setattr(api, "settings", replace(api.settings, pipeline_token="pipe-secret"))
+    response = client.post(
+        "/api/v1/pipeline/media-indexed?token=pipe-secret",
+        json={"message": {"data": "!!not-base64!!"}},
+    )
+    # Acknowledged (2xx) so a permanently broken message cannot loop to the dead-letter topic.
+    assert response.status_code == 200
+    assert response.json()["status"] == "ignored"
 
 
 def test_ask_prefers_the_adk_orchestrator_when_it_is_active(monkeypatch) -> None:
