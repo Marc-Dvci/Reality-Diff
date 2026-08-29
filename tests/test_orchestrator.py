@@ -61,6 +61,41 @@ class TextOnly(BaseLlm):
         )
 
 
+class TwoToolsThenText(BaseLlm):
+    """Call the sample world, then the (empty) imported photos, then speak.
+
+    Mirrors the live agent, which consults both evidence tools in one turn.
+    """
+
+    model: str = "fake-two-tools"
+    question: str = "When did I replace my chair?"
+
+    async def generate_content_async(self, llm_request, stream=False):
+        results = sum(
+            1
+            for content in llm_request.contents
+            for part in (getattr(content, "parts", None) or [])
+            if getattr(part, "function_response", None)
+        )
+        if results == 0:
+            tool = "search_world"
+        elif results == 1:
+            tool = "search_imported_photos"
+        else:
+            yield LlmResponse(
+                content=types.Content(
+                    role="model", parts=[types.Part.from_text(text="Here is what your photos show.")]
+                )
+            )
+            return
+        yield LlmResponse(
+            content=types.Content(
+                role="model",
+                parts=[types.Part.from_function_call(name=tool, args={"question": self.question})],
+            )
+        )
+
+
 class Boom(BaseLlm):
     model: str = "fake-boom"
 
@@ -152,6 +187,20 @@ def test_client_history_is_seeded_into_a_fresh_session() -> None:
     ]
     assert "Was this scratch already there?" in texts
     assert "Which mark, front-left or rear-right?" in texts
+
+
+def test_a_found_answer_is_not_clobbered_by_an_empty_tool() -> None:
+    # The agent consults the sample world (which answers) and imported photos (empty).
+    # The empty tool must not overwrite the grounded sample-world answer.
+    orchestrator = _orchestrator(TwoToolsThenText())
+    answer = asyncio.run(
+        orchestrator.answer(
+            AskRequest(question="When did I replace my chair?", conversation_id="c6")
+        )
+    )
+    assert answer is not None
+    assert answer.status == "answered"
+    assert {item.asset_id for item in answer.evidence} == {"office-jun-04", "office-jun-11"}
 
 
 def test_orchestrator_returns_none_so_the_api_can_fall_back() -> None:

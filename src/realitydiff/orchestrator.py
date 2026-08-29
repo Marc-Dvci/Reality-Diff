@@ -72,7 +72,10 @@ class AdkOrchestrator:
                     tool_calls.append(call.name)
                 for response in event.get_function_responses():
                     candidate = _as_answer(response.response)
-                    if candidate is not None:
+                    # A tool that found nothing must not overwrite another tool's grounded
+                    # answer: the sample world answers the demo questions even when the
+                    # visitor has no imports, and the two tools are consulted in one turn.
+                    if candidate is not None and (grounded is None or candidate.status != "not_found"):
                         grounded = candidate
                 if event.is_final_response() and event.content:
                     final_text = _content_text(event.content) or final_text
