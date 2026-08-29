@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from .adk_agent import build_adk_agent
 from .config import Settings
-from .models import AgentStep, Answer, AskRequest
+from .models import AgentStep, Answer, AskRequest, ConversationTurn
 from .repository import WorldRepository
 
 
@@ -56,7 +56,7 @@ class AdkOrchestrator:
             # generated the same conversation_id.
             owner = request.owner_id or "web"
             runner = self._ensure_runner()
-            await self._ensure_session(owner, request.conversation_id)
+            await self._ensure_session(owner, request.conversation_id, request.history)
             message = types.Content(
                 role="user", parts=[types.Part.from_text(text=request.question)]
             )
@@ -80,22 +80,54 @@ class AdkOrchestrator:
         except Exception:
             return None
 
-    async def _ensure_session(self, owner: str, conversation_id: str) -> None:
+    async def _ensure_session(
+        self, owner: str, conversation_id: str, history: list[ConversationTurn] | None = None
+    ) -> None:
         service = self._session_service
         if service is None:
             return
         existing = await service.get_session(
             app_name=self.app_name, user_id=owner, session_id=conversation_id
         )
-        if existing is None:
-            # The owner is carried in session state so the evidence tools scope every
-            # retrieval to this visitor's own uploads and corrections.
-            await service.create_session(
-                app_name=self.app_name,
-                user_id=owner,
-                session_id=conversation_id,
-                state={"owner_id": owner},
-            )
+        if existing is not None:
+            return
+        # The owner is carried in session state so the evidence tools scope every
+        # retrieval to this visitor's own uploads and corrections.
+        session = await service.create_session(
+            app_name=self.app_name,
+            user_id=owner,
+            session_id=conversation_id,
+            state={"owner_id": owner},
+        )
+        # In-memory sessions are per-instance, so a recycled or fresh Cloud Run instance
+        # starts empty. Reconstruct the turn history the client already carries, so a
+        # multi-turn follow-up still resolves against earlier turns wherever it lands.
+        await self._seed_history(service, session, history)
+
+    async def _seed_history(
+        self, service: Any, session: Any, history: list[ConversationTurn] | None
+    ) -> None:
+        if not history:
+            return
+        from google.adk.events import Event
+        from google.genai import types
+
+        author = getattr(getattr(self._runner, "agent", None), "name", None) or self.app_name
+        for turn in history:
+            text = (getattr(turn, "text", "") or "").strip()
+            if not text:
+                continue
+            if getattr(turn, "role", "") == "user":
+                content = types.Content(role="user", parts=[types.Part.from_text(text=text)])
+                event = Event(author="user", content=content)
+            else:
+                content = types.Content(role="model", parts=[types.Part.from_text(text=text)])
+                event = Event(author=author, content=content)
+            try:
+                await service.append_event(session, event)
+            except Exception:
+                # Seeding is best effort: a single unusable turn must not drop the turn.
+                continue
 
 
 def _as_answer(payload: Any) -> Answer | None:

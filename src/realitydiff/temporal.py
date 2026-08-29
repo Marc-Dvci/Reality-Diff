@@ -68,7 +68,9 @@ class TemporalReasoner:
         )
 
     def _chair_answer(self, request: AskRequest) -> Answer:
-        memory = self.repository.corrections(request.conversation_id, request.owner_id)
+        # Corrections are recalled by the persistent owner, not the per-page-load
+        # conversation, so a saved correction carries into every future question.
+        memory = self.repository.corrections(owner_id=request.owner_id)
         merge = next(
             (
                 item["statement"]

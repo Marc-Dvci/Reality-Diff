@@ -83,6 +83,29 @@ def test_correction_round_trip_is_conversation_scoped() -> None:
     assert client.get("/api/v1/corrections?conversation_id=someone-else").json() == []
 
 
+def test_corrections_persist_across_conversations_for_the_same_owner() -> None:
+    # A correction saved in one session (conversation ABC)...
+    created = client.post(
+        "/api/v1/corrections",
+        json={
+            "conversation_id": "session-abc",
+            "kind": "identity",
+            "subject_id": "home-office",
+            "statement": "The mesh and ergonomic chairs are the same chair.",
+        },
+    )
+    assert created.status_code == 201
+    # ...still shapes the answer after a refresh mints a fresh conversation id, because
+    # recall is scoped to the persistent owner, not the conversation.
+    answer = client.post(
+        "/api/v1/ask",
+        json={"question": "When did I replace my chair?", "conversation_id": "session-xyz"},
+    ).json()
+    assert answer["status"] == "answered"
+    assert "same chair" in answer["title"].lower()
+    assert answer["learned_memory"]
+
+
 def test_ingestion_run_reports_recorded_demo_transport() -> None:
     response = client.post(
         "/api/v1/ingestion-runs",

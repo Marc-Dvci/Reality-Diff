@@ -18,7 +18,7 @@ from google.adk.models import BaseLlm, LlmResponse  # noqa: E402
 from google.genai import types  # noqa: E402
 
 from realitydiff.config import settings  # noqa: E402
-from realitydiff.models import AskRequest  # noqa: E402
+from realitydiff.models import AskRequest, ConversationTurn  # noqa: E402
 from realitydiff.orchestrator import AdkOrchestrator  # noqa: E402
 from realitydiff.repository import WorldRepository  # noqa: E402
 
@@ -122,6 +122,36 @@ def test_session_state_is_carried_across_turns() -> None:
     assert session is not None
     # Both user turns and their tool exchanges accumulate in one persistent session.
     assert len(session.events) >= 4
+
+
+def test_client_history_is_seeded_into_a_fresh_session() -> None:
+    # In-memory sessions are per-instance; a fresh instance must reconstruct the
+    # conversation from the history the client sends every turn.
+    orchestrator = _orchestrator(ToolThenText())
+
+    async def run_with_history():
+        await orchestrator.answer(
+            AskRequest(
+                question="The rear one.",
+                conversation_id="c5",
+                history=[
+                    ConversationTurn(role="user", text="Was this scratch already there?"),
+                    ConversationTurn(role="agent", text="Which mark, front-left or rear-right?"),
+                ],
+            )
+        )
+        return await orchestrator._session_service.get_session(
+            app_name=orchestrator.app_name, user_id="web", session_id="c5"
+        )
+
+    session = asyncio.run(run_with_history())
+    texts = [
+        "".join(part.text or "" for part in (event.content.parts or []))
+        for event in session.events
+        if event.content
+    ]
+    assert "Was this scratch already there?" in texts
+    assert "Which mark, front-left or rear-right?" in texts
 
 
 def test_orchestrator_returns_none_so_the_api_can_fall_back() -> None:

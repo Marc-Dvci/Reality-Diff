@@ -25,7 +25,9 @@ class GeminiTemporalReasoner:
         raw = self.analyzer.reason_about_observations(
             request.question,
             observations,
-            self.repository.corrections(request.conversation_id, request.owner_id),
+            # Recall by the persistent owner so corrections carry across sessions,
+            # not only within the conversation they were made in.
+            self.repository.corrections(owner_id=request.owner_id),
         )
         allowed = {str(item["id"]): item for item in uploads}
         evidence = [
