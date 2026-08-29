@@ -16,6 +16,7 @@ from .cloud import build_event_publisher, build_state_backend
 from .config import settings
 from .live_reasoner import GeminiTemporalReasoner
 from .models import AskRequest, CorrectionRequest, IngestionRequest
+from .orchestrator import AdkOrchestrator
 from .pipeline import GeminiMediaAnalyzer
 from .repository import WorldRepository
 from .storage import LocalMediaStore, build_media_store
@@ -30,6 +31,7 @@ repository = WorldRepository(
 reasoner = TemporalReasoner(repository)
 analyzer = GeminiMediaAnalyzer(settings)
 live_reasoner = GeminiTemporalReasoner(repository, analyzer)
+orchestrator = AdkOrchestrator(repository, settings) if settings.live_model_enabled else None
 media_store = build_media_store(settings)
 event_publisher = build_event_publisher(settings)
 app = FastAPI(
@@ -88,6 +90,13 @@ def subject(subject_id: str) -> dict[str, object]:
 
 @app.post("/api/v1/ask")
 async def ask(request: AskRequest) -> dict[str, object]:
+    # Live deployments route the conversation through the Google ADK partner, which owns
+    # tool choice, clarification, and multi-turn state. It falls back to the direct pipeline
+    # so the offline demo and any orchestration hiccup still return a grounded answer.
+    if orchestrator is not None:
+        orchestrated = await orchestrator.answer(request)
+        if orchestrated is not None:
+            return orchestrated.model_dump()
     deterministic = reasoner.answer(request)
     if deterministic.status != "not_found" or not settings.live_model_enabled:
         return deterministic.model_dump()

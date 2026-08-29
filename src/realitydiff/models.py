@@ -19,12 +19,22 @@ class EvidenceRef(BaseModel):
     confidence: float = Field(ge=0, le=1)
 
 
+class ConversationTurn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    role: Literal["user", "agent"]
+    text: str = Field(default="", max_length=1200)
+    subject_id: str | None = None
+    status: str | None = None
+
+
 class AskRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     question: str = Field(min_length=2, max_length=500)
     conversation_id: str = Field(default="judge-demo", min_length=1, max_length=100)
     context_subject_id: str | None = None
+    history: list[ConversationTurn] = Field(default_factory=list, max_length=40)
 
 
 class AgentStep(BaseModel):

@@ -8,7 +8,7 @@
     filter: "all",
     galleryFilter: "All",
     conversation: [],
-    conversationId: "judge-demo",
+    conversationId: `web-${(crypto.randomUUID && crypto.randomUUID()) || Date.now()}`,
     busy: false,
     lastAnswer: null,
     apiOnline: false,
@@ -316,30 +316,39 @@
     return `<article class="message agent"><div class="message-bubble"><h3>${escapeHtml(answer.title)}</h3><div>${escapeHtml(answer.text)}</div>${coverage}${evidence}${choices}${actions}${answer.follow_up ? `<p style="margin:10px 0 0;color:var(--muted);font-size:11px">${escapeHtml(answer.follow_up)}</p>` : ""}</div><div class="message-meta">Reality Diff · now ${confidence}</div></article>`;
   }
 
+  function conversationContext() {
+    const priorAgent = [...state.conversation].reverse().find((message) => message.role === "agent" && message.answer);
+    const history = state.conversation.slice(-13, -1).map((message) => message.role === "user"
+      ? { role: "user", text: message.text }
+      : { role: "agent", text: message.answer?.title || "", subject_id: message.answer?.subject_id || null, status: message.answer?.status || null });
+    return { history, contextSubjectId: priorAgent?.answer?.subject_id || null };
+  }
+
   async function askQuestion(question) {
     const cleaned = question.trim();
     if (!cleaned || state.busy) return;
+    const { history, contextSubjectId } = conversationContext();
     state.conversation.push({ role: "user", text: cleaned });
     state.busy = true;
     renderAsk();
     let answer;
     if (state.apiOnline) {
       try {
-        const response = await fetch("/api/v1/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: cleaned, conversation_id: state.conversationId }) });
+        const response = await fetch("/api/v1/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: cleaned, conversation_id: state.conversationId, context_subject_id: contextSubjectId, history }) });
         if (!response.ok) throw new Error(`API ${response.status}`);
         answer = await response.json();
       } catch (_error) {
         state.apiOnline = false;
-        answer = localAnswer(cleaned);
+        answer = localAnswer(cleaned, history, contextSubjectId);
       }
-    } else answer = localAnswer(cleaned);
+    } else answer = localAnswer(cleaned, history, contextSubjectId);
     state.lastAnswer = answer;
     state.conversation.push({ role: "agent", answer });
     state.busy = false;
     renderAsk();
   }
 
-  function localAnswer(question) {
+  function localAnswer(question, history = [], contextSubjectId = null) {
     const q = question.toLowerCase();
     const evidence = (...ids) => ids.map((id) => asset(id)).filter(Boolean);
     const steps = (detail, status = "complete") => [
@@ -349,11 +358,32 @@
       { name: "Answer", status, detail: status === "complete" ? "Returned the narrowest supported claim." : "Stopped before an unsupported claim." },
     ];
     const base = { answer_id: `local_${Date.now()}`, subject_id: null, evidence: [], coverage_note: null, follow_up: null, choices: [], steps: [] };
-    if (q.includes("chair")) return { ...base, status: "answered", title: "Your chair changed between June 4 and June 11", text: "The dark mesh chair is last clearly visible on June 4. The sand-coloured ergonomic chair first appears on June 11. There is no clear workspace photo between those dates, so I can narrow the replacement to that seven-day window, not a single day.", confidence: .96, confidence_label: "high", subject_id: "home-office", evidence: evidence("office-jun-04", "office-jun-11"), coverage_note: "No usable home-office photo was captured from June 5–10.", follow_up: "Want me to show the monitor and plant changes from the same week?", steps: steps("Compared 42 home-office observations.") };
-    if (/scratch|scuff|mark|damage/.test(q) && !/front|rear|left|right|bumper/.test(q)) return { ...base, status: "clarification_required", title: "Which mark do you mean?", text: "I found two different marks on the white rental car. Their evidence is not equivalent, so choosing for you could produce the wrong claim.", confidence: 0, confidence_label: "not_applicable", subject_id: "white-rental-car", evidence: evidence("car-return-front-left", "car-return-rear-right"), choices: ["Front-left bumper scuff", "Rear-right bumper scratch"], steps: steps("Two candidate entities matched; paused before resolving ambiguity.", "needs_input") };
-    if (/scratch|scuff|mark|damage/.test(q) && /rear/.test(q) && /right/.test(q)) return { ...base, status: "uncertain", title: "I can’t determine whether the rear-right scratch was already there", text: "The scratch is visible in a return photo, but none of the pickup photographs clearly shows the rear-right bumper. Absence from an unseen region is not evidence that the mark was new.", confidence: .18, confidence_label: "low", subject_id: "white-rental-car", evidence: evidence("car-return-rear-right"), coverage_note: "Pickup coverage gap: rear-right bumper and quarter panel.", follow_up: "If you have another pickup photo or video, add it and I’ll re-check this region.", steps: steps("Rear-right pickup region was never visible.", "refused") };
-    if (/scratch|scuff|mark|damage/.test(q) && /front/.test(q) && /left/.test(q)) return { ...base, status: "answered", title: "Yes — the front-left scuff was visible at pickup", text: "The same short horizontal scuff appears in the August 3 pickup photo and the August 8 return photo at the same bumper position.", confidence: .97, confidence_label: "high", subject_id: "white-rental-car", evidence: evidence("car-pickup-front-left", "car-return-front-left"), coverage_note: "Front-left exterior coverage is sufficient at both pickup and return.", steps: steps("Matched vehicle identity, body region, mark geometry and pickup timestamp.") };
-    if (/scratch|scuff|mark|damage/.test(q)) return { ...base, status: "clarification_required", title: "Which mark do you mean?", text: "I found two different marks on the white rental car. Their evidence is not equivalent, so choosing for you could produce the wrong claim.", confidence: 0, confidence_label: "not_applicable", subject_id: "white-rental-car", evidence: evidence("car-return-front-left", "car-return-rear-right"), choices: ["Front-left bumper scuff", "Rear-right bumper scratch"], steps: steps("The supplied direction does not uniquely resolve a supported region.", "needs_input") };
+    const clarifyScratch = () => ({ ...base, status: "clarification_required", title: "Which mark do you mean?", text: "I found two different marks on the white rental car. Their evidence is not equivalent, so choosing for you could produce the wrong claim.", confidence: 0, confidence_label: "not_applicable", subject_id: "white-rental-car", evidence: evidence("car-return-front-left", "car-return-rear-right"), choices: ["Front-left bumper scuff", "Rear-right bumper scratch"], steps: steps("Two candidate entities matched; paused before resolving ambiguity.", "needs_input") });
+    const rearScratch = () => ({ ...base, status: "uncertain", title: "I can’t determine whether the rear-right scratch was already there", text: "The scratch is visible in a return photo, but none of the pickup photographs clearly shows the rear-right bumper. Absence from an unseen region is not evidence that the mark was new.", confidence: .18, confidence_label: "low", subject_id: "white-rental-car", evidence: evidence("car-return-rear-right"), coverage_note: "Pickup coverage gap: rear-right bumper and quarter panel.", follow_up: "If you have another pickup photo or video, add it and I’ll re-check this region.", steps: steps("Rear-right pickup region was never visible.", "refused") });
+    const frontScuff = () => ({ ...base, status: "answered", title: "Yes — the front-left scuff was visible at pickup", text: "The same short horizontal scuff appears in the August 3 pickup photo and the August 8 return photo at the same bumper position.", confidence: .97, confidence_label: "high", subject_id: "white-rental-car", evidence: evidence("car-pickup-front-left", "car-return-front-left"), coverage_note: "Front-left exterior coverage is sufficient at both pickup and return.", steps: steps("Matched vehicle identity, body region, mark geometry and pickup timestamp.") });
+    const lastResolvedRegion = () => { for (const turn of [...history].reverse()) { if (turn.role !== "agent") continue; const text = (turn.text || "").toLowerCase(); if (text.includes("front") && turn.status === "answered") return "front"; if (text.includes("rear")) return "rear"; } return null; };
+    const pending = contextSubjectId === "white-rental-car" || (() => { const turn = [...history].reverse().find((item) => item.role === "agent"); return turn ? turn.subject_id === "white-rental-car" : false; })();
+    const resolveRegion = () => {
+      if (/rear/.test(q) && /right/.test(q)) return "rear";
+      if (/front/.test(q) && /left/.test(q)) return "front";
+      if (!pending) return null;
+      if (/other/.test(q)) { const last = lastResolvedRegion(); return last === "front" ? "rear" : last === "rear" ? "front" : null; }
+      if (/rear|back/.test(q)) return "rear";
+      if (/front/.test(q)) return "front";
+      return null;
+    };
+    if (q.includes("chair") || q.includes("seat")) {
+      const corrections = (state.data.memory && state.data.memory.corrections) || [];
+      const merge = [...corrections].reverse().find((item) => item.kind === "identity" && /chair/.test((item.statement || "").toLowerCase()) && /same|identical|one chair/.test((item.statement || "").toLowerCase()));
+      if (merge) return { ...base, status: "answered", title: "Same chair — your correction rules out a replacement", text: "You told me the mesh and ergonomic chairs are the same chair under different light, so I no longer read the June 4 to June 11 difference as a replacement. I now treat both observations as one chair and attribute the visible change to lighting and angle, not new furniture.", confidence: .9, confidence_label: "high", subject_id: "home-office", evidence: evidence("office-jun-04", "office-jun-11"), coverage_note: "Applied your identity correction to the two workspace observations.", follow_up: "Want me to fold both chairs into a single timeline entry?", steps: steps("Re-evaluated the chair observations under your saved identity correction."), learned_memory: merge.statement };
+      return { ...base, status: "answered", title: "Your chair changed between June 4 and June 11", text: "The dark mesh chair is last clearly visible on June 4. The sand-coloured ergonomic chair first appears on June 11. There is no clear workspace photo between those dates, so I can narrow the replacement to that seven-day window, not a single day.", confidence: .96, confidence_label: "high", subject_id: "home-office", evidence: evidence("office-jun-04", "office-jun-11"), coverage_note: "No usable home-office photo was captured from June 5–10.", follow_up: "Want me to show the monitor and plant changes from the same week?", steps: steps("Compared 42 home-office observations.") };
+    }
+    if (/scratch|scuff|mark|damage|dent|ding/.test(q) || (pending && (/other/.test(q) || /front|rear|back|left|right|bumper|corner/.test(q)))) {
+      const region = resolveRegion();
+      if (region === "rear") return rearScratch();
+      if (region === "front") return frontScuff();
+      return clarifyScratch();
+    }
     if (/bike|bicycle|project|restoration/.test(q)) return { ...base, status: "answered", title: "The bike moved through five restoration stages", text: "Reality Diff grouped the photos by the same petrol-blue frame and reconstructed: documented → stripped → prepared → repainted → reassembled. Preparation is first clearly visible on March 1; the completed bike is first visible on May 29.", confidence: .91, confidence_label: "high", subject_id: "blue-bike-project", evidence: evidence("bike-feb-08", "bike-mar-01"), follow_up: "Open the project timeline to inspect every stage and its source photo.", steps: steps("Clustered by frame identity and ordered the observations.") };
     return { ...base, status: "not_found", title: "I need a more specific physical subject", text: "I searched the indexed observations but could not connect that question to a supported subject. Try the home office, white rental car, or blue bike project.", confidence: 0, confidence_label: "not_applicable", choices: quickPrompts().slice(0,3), steps: steps("No subject passed the retrieval threshold.", "needs_input") };
   }

@@ -132,3 +132,36 @@ def test_photo_upload_rejects_content_type_spoofing() -> None:
         files=[("files", ("not-a-photo.jpg", b"not really an image", "image/jpeg"))],
     )
     assert response.status_code == 415
+
+
+def test_ask_prefers_the_adk_orchestrator_when_it_is_active(monkeypatch) -> None:
+    from realitydiff.models import AgentStep, Answer
+
+    class StubOrchestrator:
+        async def answer(self, _request):
+            return Answer(
+                answer_id="ans_adk",
+                status="answered",
+                title="From the ADK partner",
+                text="Routed through the collaborative partner.",
+                confidence=0.9,
+                confidence_label="high",
+                steps=[AgentStep(name="Orchestrate", detail="Google ADK led the turn.")],
+            )
+
+    monkeypatch.setattr(api, "orchestrator", StubOrchestrator())
+    payload = client.post("/api/v1/ask", json={"question": "When did I replace my chair?"}).json()
+    assert payload["title"] == "From the ADK partner"
+    assert payload["steps"][0]["name"] == "Orchestrate"
+
+
+def test_ask_falls_back_to_the_grounded_pipeline_when_orchestrator_defers(monkeypatch) -> None:
+    class DeferringOrchestrator:
+        async def answer(self, _request):
+            return None
+
+    monkeypatch.setattr(api, "orchestrator", DeferringOrchestrator())
+    payload = client.post("/api/v1/ask", json={"question": "When did I replace my chair?"}).json()
+    # The deterministic evidence planner still answers, so the demo never regresses.
+    assert payload["status"] == "answered"
+    assert len(payload["evidence"]) == 2

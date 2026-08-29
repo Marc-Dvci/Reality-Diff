@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from realitydiff.models import AskRequest, CorrectionRequest
+from realitydiff.models import AskRequest, ConversationTurn, CorrectionRequest
 from realitydiff.repository import WorldRepository
 from realitydiff.temporal import TemporalReasoner
 
@@ -56,17 +56,76 @@ def test_visible_pickup_scuff_is_supported_by_both_periods() -> None:
     }
 
 
-def test_explicit_correction_persists_and_is_recalled(tmp_path: Path) -> None:
+def test_identity_correction_recomputes_the_chair_answer(tmp_path: Path) -> None:
     repository = WorldRepository(FIXTURE, tmp_path / "state.json")
+    statement = "The two black chairs are the same chair under different light."
     repository.remember(
         CorrectionRequest(
             conversation_id="test",
             kind="identity",
             subject_id="home-office",
-            statement="The two black chairs are the same chair under different light.",
+            statement=statement,
         )
     )
-    answer = TemporalReasoner(repository).answer(
+    reasoner_with_memory = TemporalReasoner(repository)
+
+    before = reasoner().answer(AskRequest(question="When did I replace my chair?"))
+    after = reasoner_with_memory.answer(
         AskRequest(question="When did I replace my chair?", conversation_id="test")
     )
-    assert answer.learned_memory == "The two black chairs are the same chair under different light."
+
+    # Without the correction the default answer reads the change as a replacement; the
+    # correction must change the answer itself, not merely be recalled beside it.
+    assert "replace" in before.text.lower() or "not a single day" in before.text
+    assert after.learned_memory == statement
+    assert after.title != before.title
+    assert "replacement" in after.text.lower()
+    assert "same chair" in after.text.lower()
+
+
+def test_follow_up_resolves_a_region_from_conversation_context() -> None:
+    history = [
+        ConversationTurn(role="user", text="Was this scratch already there?"),
+        ConversationTurn(
+            role="agent",
+            text="Which mark do you mean?",
+            subject_id="white-rental-car",
+            status="clarification_required",
+        ),
+    ]
+    answer = reasoner().answer(
+        AskRequest(
+            question="the rear one",
+            context_subject_id="white-rental-car",
+            history=history,
+        )
+    )
+    assert answer.status == "uncertain"
+    assert answer.subject_id == "white-rental-car"
+    assert {item.asset_id for item in answer.evidence} == {"car-return-rear-right"}
+
+
+def test_the_other_one_flips_to_the_opposite_corner() -> None:
+    history = [
+        ConversationTurn(role="user", text="Was the front-left scuff already there?"),
+        ConversationTurn(
+            role="agent",
+            text="Yes — the front-left scuff was visible at pickup",
+            subject_id="white-rental-car",
+            status="answered",
+        ),
+    ]
+    answer = reasoner().answer(
+        AskRequest(
+            question="what about the other one?",
+            context_subject_id="white-rental-car",
+            history=history,
+        )
+    )
+    assert answer.status == "uncertain"
+    assert {item.asset_id for item in answer.evidence} == {"car-return-rear-right"}
+
+
+def test_bare_follow_up_without_context_stays_ambiguous() -> None:
+    answer = reasoner().answer(AskRequest(question="the other one"))
+    assert answer.status != "uncertain"

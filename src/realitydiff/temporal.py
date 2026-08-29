@@ -3,8 +3,12 @@ from __future__ import annotations
 import re
 from uuid import uuid4
 
-from .models import AgentStep, Answer, AskRequest, EvidenceRef
+from .models import AgentStep, Answer, AskRequest, ConversationTurn, EvidenceRef
 from .repository import WorldRepository
+
+
+SCRATCH_TERMS = ("scratch", "scuff", "mark", "damage", "dent", "ding")
+REGION_TERMS = ("front", "rear", "back", "left", "right", "bumper", "corner")
 
 
 def _normalise(value: str) -> str:
@@ -27,12 +31,16 @@ class TemporalReasoner:
         query = _normalise(request.question)
         if any(token in query for token in ("chair", "seat")):
             return self._chair_answer(request)
-        if any(token in query for token in ("scratch", "scuff", "mark", "damage")):
-            if not any(token in query for token in ("front", "rear", "left", "right", "bumper")):
-                return self._clarify_scratch()
-            if "rear" in query and "right" in query:
+        pending = self._pending_scratch(request)
+        is_scratch = any(token in query for token in SCRATCH_TERMS)
+        is_region_followup = pending and (
+            "other" in query or any(token in query for token in REGION_TERMS)
+        )
+        if is_scratch or is_region_followup:
+            region = self._resolve_region(query, request, pending)
+            if region == "rear":
                 return self._rear_scratch_answer()
-            if "front" in query and "left" in query:
+            if region == "front":
                 return self._front_scuff_answer()
             return self._clarify_scratch()
         if any(token in query for token in ("bike", "bicycle", "project", "restoration")):
@@ -61,9 +69,41 @@ class TemporalReasoner:
 
     def _chair_answer(self, request: AskRequest) -> Answer:
         memory = self.repository.corrections(request.conversation_id)
+        merge = next(
+            (
+                item["statement"]
+                for item in reversed(memory)
+                if item["kind"] == "identity" and _is_same_chair_claim(item["statement"])
+            ),
+            None,
+        )
         learned = next(
             (item["statement"] for item in reversed(memory) if item["kind"] == "identity"), None
         )
+        if merge is not None:
+            # An identity correction re-computes the answer, it does not merely sit
+            # beside it: the two chairs are now one subject, so there is no replacement.
+            return Answer(
+                answer_id=self._id(),
+                status="answered",
+                title="Same chair — your correction rules out a replacement",
+                text=(
+                    "You told me the mesh and ergonomic chairs are the same chair under "
+                    "different light, so I no longer read the June 4 to June 11 difference as "
+                    "a replacement. I now treat both observations as one chair and attribute "
+                    "the visible change to lighting and angle, not new furniture."
+                ),
+                confidence=0.9,
+                confidence_label="high",
+                subject_id="home-office",
+                evidence=self._evidence(["office-jun-04", "office-jun-11"]),
+                coverage_note="Applied your identity correction to the two workspace observations.",
+                follow_up="Want me to fold both chairs into a single timeline entry?",
+                steps=self._steps(
+                    "Re-evaluated the chair observations under your saved identity correction."
+                ),
+                learned_memory=merge,
+            )
         return Answer(
             answer_id=self._id(),
             status="answered",
@@ -85,6 +125,47 @@ class TemporalReasoner:
             ),
             learned_memory=learned,
         )
+
+    def _pending_scratch(self, request: AskRequest) -> bool:
+        """True when the conversation is already about the rental car's marks."""
+        if request.context_subject_id == "white-rental-car":
+            return True
+        last = self._last_agent_turn(request.history)
+        return bool(last and last.subject_id == "white-rental-car")
+
+    def _resolve_region(self, query: str, request: AskRequest, pending: bool) -> str | None:
+        if "rear" in query and "right" in query:
+            return "rear"
+        if "front" in query and "left" in query:
+            return "front"
+        if not pending:
+            return None
+        # Mid-conversation, a shorter reference is enough to resolve the corner.
+        if "other" in query:
+            return {"front": "rear", "rear": "front"}.get(
+                self._last_resolved_region(request.history)
+            )
+        if "rear" in query or "back" in query:
+            return "rear"
+        if "front" in query:
+            return "front"
+        return None
+
+    @staticmethod
+    def _last_agent_turn(history: list[ConversationTurn]) -> ConversationTurn | None:
+        return next((turn for turn in reversed(history) if turn.role == "agent"), None)
+
+    @staticmethod
+    def _last_resolved_region(history: list[ConversationTurn]) -> str | None:
+        for turn in reversed(history):
+            if turn.role != "agent":
+                continue
+            text = turn.text.lower()
+            if "front" in text and turn.status == "answered":
+                return "front"
+            if "rear" in text:
+                return "rear"
+        return None
 
     def _monitor_answer(self) -> Answer:
         return Answer(
@@ -222,3 +303,8 @@ class TemporalReasoner:
     @staticmethod
     def _id() -> str:
         return f"ans_{uuid4().hex[:10]}"
+
+
+def _is_same_chair_claim(statement: str) -> bool:
+    text = statement.lower()
+    return "chair" in text and any(word in text for word in ("same", "identical", "one chair"))
