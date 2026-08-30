@@ -17,3 +17,8 @@ android/**/build/
 *.tfstate
 *.tfstate.*
 .terraform.tfstate.lock.info
+
+# Local media and drafts (published elsewhere, not tracked here)
+Build video/
+Demo video/
+SOCIAL.md
